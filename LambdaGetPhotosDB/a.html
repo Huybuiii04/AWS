@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<!--
+Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Html.html to edit this template
+-->
+<html>
+    <head>
+        <title>Bucket List</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            table, th, td {
+                border: 1px solid;
+            }
+        </style>
+
+    </head>
+    <body>
+
+        <div><h1>Bucket List</h1></div>
+        
+        <div>
+            <h2>Upload Image</h2>
+            <input type="file" id="fileInput" accept="image/*"><br><br>
+            <label for="descriptionInput">Description:</label><br>
+            <input type="text" id="descriptionInput" placeholder="Enter image description" style="width: 300px;"><br><br>
+            <button onclick="uploadFile()">Upload</button>
+            <p id="uploadStatus"></p>
+        </div>
+        
+        <div>
+            <table id="objectsTable">
+                <thead>
+                    <tr>
+                        <th>File Name</th>
+                        <th>Description</th>
+                        <th>Download</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody id="objectsTableBody">
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <img src="" id="download_image">
+        </div>
+        <script>
+            //getObjectList();
+            fetchListOfObjects();
+
+
+            function renderListOfObjects(listOfObjects) {
+                let objectsTableBody = document.getElementById("objectsTableBody");
+                while (objectsTableBody.firstChild) {
+                    objectsTableBody.removeChild(objectsTableBody.lastChild);
+                }
+                let objectsArray = JSON.parse(listOfObjects);
+                console.log("Data from Lambda:", objectsArray);
+
+                for (let i = 0; i < objectsArray.length; i = i + 1) {
+                    let row = document.createElement("tr");
+                    let keyCell = document.createElement("td");
+                    keyCell.innerHTML = objectsArray[i].S3Key || objectsArray[i].key;
+                    /* */
+                    let descriptionCell = document.createElement("td");
+                    descriptionCell.innerHTML = objectsArray[i].Description || objectsArray[i].description || "";
+                    /* */
+                    let downloadCell = document.createElement("td");
+                    let downloadButton = document.createElement("button");
+                    downloadButton.addEventListener("click", function () {
+                        //downloadObject(objectsArray[i].key);
+                        let key = objectsArray[i].S3Key || objectsArray[i].key;
+                        fetchObject(key)
+                    });
+                    downloadButton.innerHTML = "Download";
+                    downloadCell.appendChild(downloadButton);
+                    /* */
+                    let deleteCell = document.createElement("td");
+                    let deleteButton = document.createElement("button");
+                    deleteButton.addEventListener("click", function () {
+                        let key = objectsArray[i].S3Key || objectsArray[i].key;
+                        deleteObject(key);
+                    });
+                    deleteButton.innerHTML = "Delete";
+                    deleteCell.appendChild(deleteButton);
+                    /* */
+                    row.appendChild(keyCell);
+                    row.appendChild(descriptionCell);
+                    row.appendChild(downloadCell);
+                    row.appendChild(deleteCell);
+                    objectsTableBody.appendChild(row);
+                }
+
+            }
+
+            function fetchListOfObjects() {
+                let url = "https://xvmtfam57psm2qjr5i2b5dqwvi0xveqi.lambda-url.ap-southeast-1.on.aws/";
+                fetch(url)
+                        .then((response) => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error, status = ${response.status}`);
+                            }
+                            return response.text();
+                        })
+                        .then((text) => {
+                            console.log("Raw response:", text);
+                            try {
+                                const decoded = atob(text);
+                                console.log("Decoded data:", decoded);
+                                renderListOfObjects(decoded);
+                            } catch (e) {
+                                console.log("Decode failed:", e);
+                                renderListOfObjects(text);
+                            }
+                        })
+                        .catch((error) => {
+                            console.log(`Error: ${error.message}`);
+                        });
+
+            }
+
+
+            function fetchObject(key) {
+                const body = {
+                    "key": key
+                };
+                /*       
+                 let url = "https://c2by4ajeblmkwtz364qoludmnu0bgoge.lambda-url.ap-southeast-1.on.aws/?key=" + key;
+                 */
+                let url = "https://tdqylxfoezzpjroyqn4mflj7n40hmwmx.lambda-url.ap-southeast-1.on.aws/";
+
+                fetch(url,
+                        {
+                            method: 'PUT',
+                            body: JSON.stringify(body)
+                        }
+                        )
+                        .then(response => response.blob())
+                        .then((myBlob) => {
+                            const objectURL = URL.createObjectURL(myBlob);
+                            const img_S3 = document.getElementById("download_image");
+                            img_S3.src = objectURL;
+                        });
+            }
+
+            /* GET BUCKET OBJECT LIST */
+            function getObjectList() {
+                let objectsTable = document.getElementById("objectsTable");
+                while (objectsTable.firstChild) {
+                    objectsTable.removeChild(objectsTable.lastChild);
+                }
+                const xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = () => {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            let objectsArray = JSON.parse(xhr.responseText);
+
+                            for (let i = 0; i < objectsArray.length; i = i + 1) {
+                                let row = document.createElement("tr");
+                                let keyCell = document.createElement("td");
+                                keyCell.innerHTML = objectsArray[i].key;
+                                /* */
+                                let descriptionCell = document.createElement("td");
+                                descriptionCell.innerHTML = objectsArray[i].description || "";
+                                /* */
+                                let downloadCell = document.createElement("td");
+                                let downloadButton = document.createElement("button");
+                                downloadButton.addEventListener("click", function () {
+                                    //downloadObject(objectsArray[i].key);
+                                    fetchObject(objectsArray[i].key)
+                                });
+                                downloadButton.innerHTML = "Download";
+                                downloadCell.appendChild(downloadButton);
+                                /* */
+                                let deleteCell = document.createElement("td");
+                                let deleteButton = document.createElement("button");
+                                deleteButton.addEventListener("click", function () {
+                                    deleteObject(objectsArray[i].key);
+                                });
+                                deleteButton.innerHTML = "Delete";
+                                deleteCell.appendChild(deleteButton);
+                                /* */
+                                row.appendChild(keyCell);
+                                row.appendChild(descriptionCell);
+                                row.appendChild(downloadCell);
+                                row.appendChild(deleteCell);
+                                objectsTable.appendChild(row);
+                            }
+
+                        } else {
+                            console.log(xhr.responseText);
+                        }
+                    }
+                };
+                xhr.open("GET", "https://fxar4c32i7xttaaxzwlqkxujca0awmxy.lambda-url.ap-southeast-1.on.aws");
+                xhr.send(null);
+
+            }
+
+            /* UPLOAD FILE */
+            function uploadFile() {
+                const fileInput = document.getElementById('fileInput');
+                const descriptionInput = document.getElementById('descriptionInput');
+                const file = fileInput.files[0];
+                const description = descriptionInput.value.trim();
+                const statusElement = document.getElementById('uploadStatus');
+                
+                if (!file) {
+                    statusElement.innerHTML = 'Please select a file first!';
+                    statusElement.style.color = 'red';
+                    return;
+                }
+                
+                statusElement.innerHTML = 'Uploading...';
+                statusElement.style.color = 'blue';
+                
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    const base64data = reader.result.split(',')[1];
+                    
+                    const body = {
+                        "key": file.name,
+                        "content": base64data,
+                        "description": description || ""
+                    };
+                    
+                    const bodyString = JSON.stringify(body);
+                    console.log('Uploading file:', file.name);
+                    console.log('Body length:', bodyString.length);
+                    
+                    // Use XMLHttpRequest instead of fetch for better compatibility
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', 'https://wzqqt56cy7amx3jbba7wfrn5z40rivmm.lambda-url.ap-southeast-1.on.aws/', true);
+                    // Remove Content-Type header to avoid CORS preflight
+                    // xhr.setRequestHeader('Content-Type', 'application/json');
+                    
+                    xhr.onload = function() {
+                        console.log('Response status:', xhr.status);
+                        console.log('Response text:', xhr.responseText);
+                        try {
+                            const result = JSON.parse(xhr.responseText);
+                            if (xhr.status === 200) {
+                                statusElement.innerHTML = 'Upload successful! ' + (result.message || '');
+                                statusElement.style.color = 'green';
+                                fileInput.value = '';
+                                descriptionInput.value = '';
+                                setTimeout(() => {
+                                    fetchListOfObjects();
+                                }, 1000);
+                            } else {
+                                statusElement.innerHTML = 'Upload failed: ' + (result.error || xhr.responseText);
+                                statusElement.style.color = 'red';
+                            }
+                        } catch (e) {
+                            statusElement.innerHTML = 'Upload failed: ' + xhr.responseText;
+                            statusElement.style.color = 'red';
+                        }
+                    };
+                    
+                    xhr.onerror = function() {
+                        console.error('Upload error');
+                        statusElement.innerHTML = 'Upload failed: Network error';
+                        statusElement.style.color = 'red';
+                    };
+                    
+                    xhr.send(bodyString);
+                };
+                
+                reader.readAsDataURL(file);
+            }
+
+
+            /* DOWNLOAD OBJECT */
+            function downloadObject(key) {
+                const xhr = new XMLHttpRequest();
+                xhr.onload = function () {
+                    let reader = new FileReader();
+                    reader.onloadend = function () {
+                        if (xhr.status === 200) {
+                            var outputImg = document.getElementById('download_image');
+                            outputImg.src = reader.result;
+                        } else {
+                            console.log(xhr.status + " : " + xhr.responseText);
+                        }
+                    };
+                    reader.readAsDataURL(xhr.response);
+                };
+                xhr.open("PUT", "https://c2by4ajeblmkwtz364qoludmnu0bgoge.lambda-url.ap-southeast-1.on.aws/");
+                const body1 = JSON.stringify({
+                    "key": key
+                });
+                xhr.responseType = 'blob';
+                xhr.send(body1);
+            }
+
+            /* DELETE OBJECT */
+            function deleteObject(key) {
+                if (!confirm('Are you sure you want to delete "' + key + '"?\n\nNote: The resized version will also be automatically deleted.')) {
+                    return;
+                }
+                
+                console.log('Deleting object:', key);
+                
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', 'https://e52jknem5h5v6egwutbg6sxha40smbmp.lambda-url.ap-southeast-1.on.aws/', true);
+                
+                xhr.onload = function() {
+                    console.log('Delete response:', xhr.status, xhr.responseText);
+                    if (xhr.status === 200) {
+                        alert('Successfully deleted: ' + key);
+                        fetchListOfObjects(); // Refresh the list
+                    } else {
+                        alert('Delete failed: ' + xhr.responseText);
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    console.error('Delete error');
+                    alert('Delete failed: Network error');
+                };
+                
+                const body = JSON.stringify({ "key": key });
+                xhr.send(body);
+            }
+
+
+        </script>
+    </body>
+
+</html>
